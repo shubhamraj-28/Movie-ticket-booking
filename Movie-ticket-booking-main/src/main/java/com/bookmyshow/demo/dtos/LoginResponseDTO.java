@@ -1,0 +1,18 @@
+package com.bookmyshow.demo.dtos;
+
+import lombok.Builder;
+import lombok.Data;
+
+import java.util.Set;
+
+@Data
+@Builder
+public class LoginResponseDTO {
+
+    private String jwtToken;
+    private String username;
+    private Set<String> roles;
+
+//    public static Object builder() {
+//    }
+}
