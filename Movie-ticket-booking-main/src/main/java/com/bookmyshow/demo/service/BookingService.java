@@ -10,6 +10,7 @@ import com.bookmyshow.demo.repo.ShowRepo;
 import com.bookmyshow.demo.repo.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -27,11 +28,12 @@ public class BookingService {
     @Autowired
     private UserRepo userRepo;
 
+    @Transactional
     public Booking createBooking(BookingDTO bookingDTO) {
-        Show show = showRepo.findById(bookingDTO.getShowId())
+        Show show = showRepo.findByIdWithPessimisticLock(bookingDTO.getShowId())
                 .orElseThrow(()->new RuntimeException("No show found"));
 
-        if(!isSeatAvailable(show.getId(),bookingDTO.getNumOfSeats())){
+        if(!isSeatAvailable(show,bookingDTO.getNumOfSeats())){
             throw new RuntimeException("Not enough seats available");
         }
 
@@ -39,7 +41,7 @@ public class BookingService {
             throw new RuntimeException("Number of seats should match the selected number of seats");
         }
 
-        validateDuplicates(show.getId(),bookingDTO.getSeats());
+        validateDuplicates(show,bookingDTO.getSeats());
 
         User user = userRepo.findById(bookingDTO.getUserId())
                 .orElseThrow(()->new RuntimeException("No user found"));
@@ -56,10 +58,7 @@ public class BookingService {
         return bookingRepo.save(booking);
     }
 
-    public boolean isSeatAvailable(Long showId,Integer numOfSeats){
-        Show show = showRepo.findById(showId)
-                .orElseThrow(()->new RuntimeException("No show found"));
-
+    public boolean isSeatAvailable(Show show,Integer numOfSeats){
         int bookedSeats = show.getBookings().stream()
                 .filter(booking-> booking.getBookingStatus() != BookingStatus.CANCELLED)
                 .mapToInt(Booking::getNumOfSeats)
@@ -68,10 +67,7 @@ public class BookingService {
         return (show.getTheatre().getTheatreCapacity() - bookedSeats) >= numOfSeats;
     }
 
-    public void validateDuplicates(Long showId,List<String> seats){
-        Show show = showRepo.findById(showId)
-                .orElseThrow(()->new RuntimeException("No show found"));
-
+    public void validateDuplicates(Show show,List<String> seats){
         Set<String> occupiedSeats = show.getBookings().stream()
                 .filter(b->b.getBookingStatus() != BookingStatus.CANCELLED)
                 .flatMap(b->b.getSeats().stream())
